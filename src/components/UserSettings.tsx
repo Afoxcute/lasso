@@ -4,8 +4,9 @@ import { supabase } from '../utils/supabase';
 import { WalletInfo } from './WalletInfo';
 import { ChangePassword } from './ChangePassword';
 import { PasswordReset } from './PasswordReset';
-import { Settings, KeyRound, Mail, User, AlertTriangle, Edit } from 'lucide-react';
+import { Settings, KeyRound, Mail, User, AlertTriangle, Edit, HardDrive } from 'lucide-react';
 import { fetchAdminInfo, updateAdminInfo, AdminInfo } from '../utils/admin';
+import { StorageProvider, getStorageProvider, setStorageProvider } from '../utils/storage';
 
 interface UserSettingsProps {
   onBack?: () => void;
@@ -25,6 +26,8 @@ export function UserSettings({ onBack }: UserSettingsProps) {
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null);
+  const [storageProvider, setStorageProviderState] = useState<StorageProvider>('pinata');
+  const [isUpdatingProvider, setIsUpdatingProvider] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -45,6 +48,12 @@ export function UserSettings({ onBack }: UserSettingsProps) {
         // Set form values
         setFormName(info.fullName || '');
         setFormEmail(info.email || '');
+
+        // Get storage provider preference
+        if (info.isAdmin) {
+          const provider = await getStorageProvider(activeAddress);
+          setStorageProviderState(provider);
+        }
       } catch (error: any) {
         console.error('Error in fetchUserData:', error);
         setError(`Error fetching user data: ${error.message}`);
@@ -91,6 +100,27 @@ export function UserSettings({ onBack }: UserSettingsProps) {
     } catch (error: any) {
       console.error('Error updating profile:', error);
       alert(`Error updating profile: ${error.message}`);
+    }
+  };
+
+  const handleStorageProviderChange = async (provider: StorageProvider) => {
+    if (!activeAddress || !isAdmin) return;
+    
+    setIsUpdatingProvider(true);
+    try {
+      const result = await setStorageProvider(activeAddress, provider);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update storage provider');
+      }
+      
+      setStorageProviderState(provider);
+      alert(`Storage provider updated to ${provider}`);
+    } catch (error: any) {
+      console.error('Error updating storage provider:', error);
+      alert(`Error updating storage provider: ${error.message}`);
+    } finally {
+      setIsUpdatingProvider(false);
     }
   };
 
@@ -253,21 +283,80 @@ export function UserSettings({ onBack }: UserSettingsProps) {
                       </div>
                       
                       {isAdmin && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Subscription Plan
-                          </label>
-                          <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-md px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              subscriptionPlan === 'free' ? 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200' : 
-                              subscriptionPlan === 'basic' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
-                              subscriptionPlan === 'pro' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
-                              'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-                            }`}>
-                              {subscriptionPlan ? subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1) : 'No Plan'}
-                            </span>
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Subscription Plan
+                            </label>
+                            <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-md px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                subscriptionPlan === 'free' ? 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200' : 
+                                subscriptionPlan === 'basic' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                                subscriptionPlan === 'pro' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
+                                'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                              }`}>
+                                {subscriptionPlan ? subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1) : 'No Plan'}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Storage Provider
+                            </label>
+                            <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-4">
+                              <div className="flex items-center mb-3">
+                                <HardDrive size={18} className="text-gray-400 mr-2" />
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                  Select your preferred storage provider for media files
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => handleStorageProviderChange('pinata')}
+                                  disabled={isUpdatingProvider}
+                                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
+                                    storageProvider === 'pinata'
+                                      ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
+                                  }`}
+                                >
+                                  <span className="font-medium">Pinata</span>
+                                  {storageProvider === 'pinata' && (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
+                                      Active
+                                    </span>
+                                  )}
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleStorageProviderChange('lighthouse')}
+                                  disabled={isUpdatingProvider}
+                                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
+                                    storageProvider === 'lighthouse'
+                                      ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
+                                  }`}
+                                >
+                                  <span className="font-medium">Lighthouse</span>
+                                  {storageProvider === 'lighthouse' && (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
+                                      Active
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                              
+                              {isUpdatingProvider && (
+                                <div className="flex items-center justify-center mt-3">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Updating provider...</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}

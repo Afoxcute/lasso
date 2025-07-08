@@ -2,7 +2,7 @@ import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { useWallet, useNetwork } from '@txnlab/use-wallet-react';
 import algosdk from 'algosdk';
 import { getAlgodClient, getNetworkConfig } from '../utils/algod';
-import { pinFileToIPFS } from '../utils/pinata';
+import { uploadFileToIPFS, getIPFSGatewayURL, getStorageProvider } from '../utils/storage';
 import { ChevronLeft, ChevronRight, Upload, X, Plus, Trash2, Eye, Palette, Award, Building2, QrCode, AlertTriangle } from 'lucide-react';
 import * as QRCode from 'qrcode';
 import { checkSubscription, hasReachedProgramLimit, SUBSCRIPTION_PLANS } from '../utils/subscription';
@@ -211,24 +211,29 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
       if (!file.type.startsWith('image/')) {
         alert('Please select an image file for the banner');
         return;
-    }
+      }
       
       setUploadingBanner(true);
     
-    try {
-        // Upload to IPFS
-        const result = await pinFileToIPFS(file);
+      try {
+        // Get the user's preferred storage provider
+        const provider = await getStorageProvider(activeAddress || '');
+        
+        // Upload to IPFS using the selected provider
+        const result = await uploadFileToIPFS(file, provider);
       
-      if (result.success && result.cid) {
-          const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${result.cid}`;
+        if (result.success && result.cid) {
+          // Get the gateway URL for the selected provider
+          const ipfsUrl = getIPFSGatewayURL(result.cid, result.provider);
+          
           updateFormData({
             bannerFile: file,
             bannerUrl: ipfsUrl
           });
-      } else {
+        } else {
           throw new Error(result.message || 'Failed to upload banner');
-      }
-    } catch (error: any) {
+        }
+      } catch (error: any) {
         console.error('Error uploading banner:', error);
         alert(`Error uploading banner: ${error.message}`);
       } finally {

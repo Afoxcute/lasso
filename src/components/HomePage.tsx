@@ -105,7 +105,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             >
               <span className="block">Welcome to</span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-                Gaius Loyalty
+                Lassso Loyalty
               </span>
             </motion.h1>
             
@@ -214,7 +214,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
               className="text-3xl md:text-4xl font-bold mb-6 text-gray-900 dark:text-white"
               variants={itemVariants}
             >
-              Why Choose Gaius Loyalty?
+              Why Choose Lassso Loyalty?
             </motion.h2>
             <motion.p 
               className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto"
@@ -294,7 +294,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   <div className="relative z-10 h-full flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-center">
-                        <h3 className="text-2xl font-bold text-white">Gaius Gold</h3>
+                        <h3 className="text-2xl font-bold text-white">Lassso Gold</h3>
                         <div className="text-xl text-yellow-400">★★★</div>
                       </div>
                       <p className="text-blue-100 opacity-80 mt-1">Member since 2023</p>
@@ -491,7 +491,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             className="text-3xl md:text-4xl font-bold mb-6"
             variants={itemVariants}
           >
-            Ready to Join Gaius Loyalty?
+            Ready to Join Lassso Loyalty?
           </motion.h2>
           
           <motion.p 

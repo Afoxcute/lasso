@@ -189,7 +189,7 @@ export async function processSubscription(
       sender: walletAddress,
       receiver: SUBSCRIPTION_WALLET,
       amount: amount,
-      note: new Uint8Array(Buffer.from(`Gaius Loyalty Program - ${planDetails.name} Plan Subscription`)),
+      note: new Uint8Array(Buffer.from(`Lassso Loyalty Program - ${planDetails.name} Plan Subscription`)),
       suggestedParams
     });
     

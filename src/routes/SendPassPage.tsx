@@ -6,7 +6,7 @@ import { WalletInfo } from '../components/WalletInfo';
 import { LoyaltyPassSender } from '../components/LoyaltyPassSender';
 import { checkSubscription } from '../utils/subscription';
 import { getAlgodClient } from '../utils/algod';
-import { getIPFSGatewayURL } from '../utils/pinata';
+import { getIPFSGatewayURL, getStorageProvider } from '../utils/storage';
 
 export function SendPassPage() {
   const { activeAddress } = useWallet();
@@ -74,6 +74,9 @@ export function SendPassPage() {
         const networkType = activeNetwork === 'mainnet' ? 'mainnet' : 'testnet';
         const algodClient = getAlgodClient(networkType);
         
+        // Get the user's preferred storage provider
+        const provider = await getStorageProvider(activeAddress);
+        
         const accountInfo = await algodClient.accountInformation(activeAddress).do();
         const assets = accountInfo.assets || [];
         
@@ -95,14 +98,14 @@ export function SendPassPage() {
               let metadata = null;
               
               if (url && (url.startsWith('ipfs://') || url.includes('/ipfs/'))) {
-                imageUrl = getIPFSGatewayURL(url);
+                imageUrl = getIPFSGatewayURL(url, provider);
                 
                 try {
                   const response = await fetch(imageUrl);
                   if (response.ok) {
                     metadata = await response.json();
                     if (metadata.image) {
-                      imageUrl = getIPFSGatewayURL(metadata.image);
+                      imageUrl = getIPFSGatewayURL(metadata.image, provider);
                     }
                   }
                 } catch (e) {

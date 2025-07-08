@@ -11,7 +11,7 @@ import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import algosdk from 'algosdk'
 import { getAlgodClient } from './utils/algod'
-import { getIPFSGatewayURL } from './utils/pinata'
+import { getIPFSGatewayURL } from './utils/storage'
 import { User, LogOut } from 'lucide-react'
 import { supabase } from './utils/supabase'
 import { checkSubscription, SubscriptionDetails } from './utils/subscription'
@@ -162,7 +162,7 @@ function AppContent() {
               <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-8">
                 <Link to="/" className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-                  Gaius
+                  Lassso
                 </Link>
                 <nav className="hidden md:flex space-x-4">
                   <Link 
@@ -255,7 +255,7 @@ function AppContent() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="mb-4 md:mb-0">
                 <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text">
-                  Gaius
+                  Lassso
                 </span>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   All-in-One Loyalty Program

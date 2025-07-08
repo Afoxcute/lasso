@@ -16,7 +16,6 @@ import { User, LogOut } from 'lucide-react'
 import { supabase } from './utils/supabase'
 import { checkSubscription, SubscriptionDetails } from './utils/subscription'
 import { NetworkProvider } from './utils/NetworkContext'
-import { BoltBadge } from './components/BoltBadge'
 
 // Import route components
 import {
@@ -153,9 +152,6 @@ function AppContent() {
   return (
     <NetworkProvider>
         <div className="min-h-screen bg-white dark:bg-[#001324] text-gray-900 dark:text-gray-100">
-          {/* Bolt Badge */}
-          <BoltBadge />
-          
           {/* Header */}
           <header className="w-full bg-white dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700/50">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -230,6 +230,11 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
             bannerFile: file,
             bannerUrl: ipfsUrl
           });
+
+          // Log fallback information silently (no user notification)
+          if (result.fallbackUsed) {
+            console.warn('Lighthouse upload failed, used Pinata as fallback');
+          }
         } else {
           throw new Error(result.message || 'Failed to upload banner');
         }

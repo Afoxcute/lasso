@@ -70,7 +70,7 @@ export const setStorageProvider = async (
 };
 
 /**
- * Upload a file to IPFS using the selected provider
+ * Upload a file to IPFS using the selected provider with fallback
  * @param file The file to upload
  * @param provider The storage provider to use
  * @returns Object with success status, CID and message
@@ -83,12 +83,27 @@ export const uploadFileToIPFS = async (
   cid?: string;
   message?: string;
   provider: StorageProvider;
+  fallbackUsed?: boolean;
 }> => {
   try {
     let result;
+    let fallbackUsed = false;
     
     if (provider === 'lighthouse') {
-      result = await uploadFileToLighthouse(file);
+      try {
+        console.log('Attempting to upload to Lighthouse...');
+        result = await uploadFileToLighthouse(file);
+        
+        if (!result.success) {
+          console.warn('Lighthouse upload failed, falling back to Pinata');
+          fallbackUsed = true;
+          result = await pinFileToIPFS(file);
+        }
+      } catch (error) {
+        console.warn('Lighthouse upload error, falling back to Pinata:', error);
+        fallbackUsed = true;
+        result = await pinFileToIPFS(file);
+      }
     } else {
       // Default to Pinata
       result = await pinFileToIPFS(file);
@@ -96,14 +111,16 @@ export const uploadFileToIPFS = async (
     
     return {
       ...result,
-      provider
+      provider: fallbackUsed ? 'pinata' : provider,
+      fallbackUsed
     };
   } catch (error: any) {
     console.error(`Error uploading to IPFS via ${provider}:`, error);
     return {
       success: false,
       message: error.message || `Failed to upload to IPFS via ${provider}`,
-      provider
+      provider,
+      fallbackUsed: false
     };
   }
 };

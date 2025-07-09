@@ -284,21 +284,21 @@ export function UserSettings({ onBack }: UserSettingsProps) {
                       
                       {isAdmin && (
                         <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Subscription Plan
-                            </label>
-                            <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-md px-4 py-3">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                subscriptionPlan === 'free' ? 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200' : 
-                                subscriptionPlan === 'basic' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
-                                subscriptionPlan === 'pro' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
-                                'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-                              }`}>
-                                {subscriptionPlan ? subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1) : 'No Plan'}
-                              </span>
-                            </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Subscription Plan
+                          </label>
+                          <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-md px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              subscriptionPlan === 'free' ? 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200' : 
+                              subscriptionPlan === 'basic' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300' :
+                              subscriptionPlan === 'pro' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
+                              'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                            }`}>
+                              {subscriptionPlan ? subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1) : 'No Plan'}
+                            </span>
                           </div>
+                        </div>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

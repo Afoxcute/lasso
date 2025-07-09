@@ -120,7 +120,7 @@ Lasso supports multiple IPFS storage providers for media assets:
 - **Pinata**: Default provider, reliable and widely used IPFS pinning service
 - **Lighthouse**: Alternative provider with decentralized storage features
 
-Organization admins can choose their preferred provider in the Account Settings page. The system includes automatic fallback - if the preferred provider is unavailable, it will automatically use the alternative provider.
+Organization admins can choose their preferred provider in the Account Settings page. 
 
 ## Subscription Plans
 
@@ -155,7 +155,7 @@ src/
 
 ### Storage Provider Management
 - **Provider Selection**: Admins can choose between Pinata and Lighthouse
-- **Automatic Fallback**: Seamless fallback to alternative provider if primary fails
+
 - **Transparent Operation**: Users are informed of provider changes through UI
 - **Database Persistence**: Provider preferences stored in database
 

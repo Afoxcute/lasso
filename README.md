@@ -1,6 +1,5 @@
 # Lasso - All-in-One Loyalty Program Platform
 
-![Lasso Logo](public/gaiuslogo-app.png)
 
 Lasso is a blockchain-powered loyalty program platform built on Algorand that enables businesses to create, manage, and grow customer loyalty programs with ease. The platform leverages blockchain technology to provide transparent, secure, and interoperable loyalty experiences.
 

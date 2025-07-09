@@ -1,8 +1,8 @@
-# Gaius - All-in-One Loyalty Program Platform
+# Lasso - All-in-One Loyalty Program Platform
 
-![Gaius Logo](public/gaiuslogo-app.png)
+![Lasso Logo](public/gaiuslogo-app.png)
 
-Gaius is a blockchain-powered loyalty program platform built on Algorand that enables businesses to create, manage, and grow customer loyalty programs with ease. The platform leverages blockchain technology to provide transparent, secure, and interoperable loyalty experiences.
+Lasso is a blockchain-powered loyalty program platform built on Algorand that enables businesses to create, manage, and grow customer loyalty programs with ease. The platform leverages blockchain technology to provide transparent, secure, and interoperable loyalty experiences.
 
 ## Features
 
@@ -79,8 +79,8 @@ VITE_SUBSCRIPTION_WALLET=your_subscription_wallet_address
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/gaiusnew.git
-   cd gaiusnew
+   git clone https://github.com/yourusername/lasso.git
+   cd lasso
    ```
 
 2. Install dependencies
@@ -116,7 +116,7 @@ The application requires a Supabase database with the following tables:
 
 ## Storage Providers
 
-Gaius supports multiple IPFS storage providers for media assets:
+Lasso supports multiple IPFS storage providers for media assets:
 
 - **Pinata**: Default provider, reliable and widely used IPFS pinning service
 - **Lighthouse**: Alternative provider with decentralized storage features
@@ -125,7 +125,7 @@ Organization admins can choose their preferred provider in the Account Settings 
 
 ## Subscription Plans
 
-Gaius offers multiple subscription tiers for businesses:
+Lasso offers multiple subscription tiers for businesses:
 
 - **Basic**: 5 ALGO/month - Up to 250 members, 5 loyalty programs
 - **Professional**: 20 ALGO/month - Up to 2,500 members, 20 loyalty programs
@@ -143,8 +143,8 @@ src/
 │   └── ...
 ├── utils/              # Utility functions
 │   ├── storage.ts      # Storage provider management
-│   ├── pinata.ts       # Pinata IPFS integration
 │   ├── lighthouse.ts   # Lighthouse IPFS integration
+│   ├── pinata.ts       # Pinata IPFS integration
 │   ├── algod.ts        # Algorand client utilities
 │   └── ...
 ├── routes/             # Page components
@@ -160,71 +160,48 @@ src/
 - **Transparent Operation**: Users are informed of provider changes through UI
 - **Database Persistence**: Provider preferences stored in database
 
-### Loyalty Program Creation
-- **Multi-step Wizard**: Guided process for creating loyalty programs
-- **Custom Branding**: Upload banners and customize colors
-- **Reward Tiers**: Define multiple reward tiers with points requirements
-- **QR Code Generation**: Automatic QR code generation for programs
+### Loyalty Program Management
+- **Multi-step Creation**: Guided process for creating loyalty programs
+- **Custom Branding**: Upload custom banners and set brand colors
+- **Tiered Rewards**: Create multiple reward tiers with different point requirements
+- **Real-time Analytics**: Track program performance and member engagement
 
 ### Member Management
 - **Digital Passes**: Issue loyalty passes as Algorand assets
-- **Points Tracking**: Track member points and progress
-- **Messaging**: Direct communication with members
-- **Analytics**: View program performance metrics
+- **Points System**: Award and track points for member actions
+- **Messaging**: Direct communication with program members
+- **Transfer Support**: Allow members to transfer loyalty passes
 
-## Development
-
-### Available Scripts
+## Building for Production
 
 ```bash
-# Development
-npm run dev
-
-# Build for production
 npm run build
-
-# Preview production build
-npm run preview
-
-# Linting
-npm run lint
+# or
+pnpm build
 ```
 
-### Adding New Storage Providers
-
-To add a new storage provider:
-
-1. Create a new utility file in `src/utils/` (e.g., `newprovider.ts`)
-2. Implement the required functions:
-   - `uploadFileToNewProvider(file: File)`
-   - `getNewProviderGatewayURL(cid: string)`
-3. Update `src/utils/storage.ts` to include the new provider
-4. Update the `StorageProvider` type and related functions
-5. Add provider selection UI in `UserSettings.tsx`
-
-### Database Migrations
-
-To add new database fields:
-
-1. Create a new migration file in `prisma/migrations/`
-2. Add the SQL commands to modify the database schema
-3. Run the migration on your Supabase database
+The build artifacts will be stored in the `dist/` directory.
 
 ## Deployment
 
 The application can be deployed to any static hosting service like Netlify, Vercel, or GitHub Pages. Make sure to configure environment variables on your hosting platform.
 
-### Production Build
+## Development
 
-```bash
-npm run build
-```
+### Available Scripts
 
-The build artifacts will be stored in the `dist/` directory.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
 
-### Environment Variables for Production
+### Code Style
 
-Ensure all required environment variables are set in your hosting platform's configuration.
+The project uses:
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- TailwindCSS for styling
 
 ## Contributing
 
@@ -232,28 +209,22 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Development Guidelines
 
-1. Follow the existing code style and patterns
-2. Add appropriate TypeScript types
-3. Include error handling for all async operations
-4. Test your changes thoroughly
-5. Update documentation as needed
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Lighthouse Upload Errors**: The system automatically falls back to Pinata if Lighthouse is unavailable
-2. **Wallet Connection Issues**: Ensure you're using a supported wallet and the correct network
-3. **Database Connection**: Verify your Supabase credentials are correct
-4. **IPFS Upload Failures**: Check your API keys and network connectivity
-
-### Debug Mode
-
-Enable debug logging by setting `console.log` statements in the browser console to see detailed information about uploads and provider selection.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please contact:
+- Email: support@lasso.com
+- Discord: [Lasso Community](https://discord.gg/lasso)
+- Documentation: [docs.lasso.com](https://docs.lasso.com)
 
 ## Acknowledgments
 
@@ -262,9 +233,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Authentication and database by [Supabase](https://supabase.com/)
 - IPFS storage via [Pinata](https://www.pinata.cloud/) and [Lighthouse](https://lighthouse.storage/)
 
-## Support
+## Roadmap
 
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the troubleshooting section above
-- Review the documentation for your specific use case 
+- [ ] Mobile app development
+- [ ] Advanced analytics dashboard
+- [ ] Integration with more blockchains
+- [ ] AI-powered member insights
+- [ ] White-label solutions
+- [ ] API for third-party integrations
+
+---
+
+**Lasso** - Building the future of loyalty programs on blockchain technology. 

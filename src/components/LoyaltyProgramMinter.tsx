@@ -218,29 +218,32 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
       try {
         // Get the user's preferred storage provider
         const provider = await getStorageProvider(activeAddress || '');
+        console.log(`Using storage provider: ${provider} (with automatic fallback if needed)`);
         
-        // Upload to IPFS using the selected provider
-        const result = await uploadFileToIPFS(file, provider);
+        // Upload to IPFS using the selected provider (with automatic fallback if needed)
+        // Always skip Lighthouse and use Pinata directly to avoid timeouts
+        const result = await uploadFileToIPFS(file, provider, true);
       
         if (result.success && result.cid) {
-          // Get the gateway URL for the selected provider
+          // Get the gateway URL for the actual provider used (might be different if fallback occurred)
           const ipfsUrl = getIPFSGatewayURL(result.cid, result.provider);
+          console.log(`File uploaded successfully. CID: ${result.cid}, URL: ${ipfsUrl}`);
           
           updateFormData({
             bannerFile: file,
             bannerUrl: ipfsUrl
           });
 
-          // Log fallback information silently (no user notification)
+          // Just log fallback information silently (no user notification)
           if (result.fallbackUsed) {
-            console.warn('Lighthouse upload failed, used Pinata as fallback');
+            console.warn(`${provider} upload failed, automatically used ${result.provider} as fallback`);
           }
         } else {
           throw new Error(result.message || 'Failed to upload banner');
         }
       } catch (error: any) {
         console.error('Error uploading banner:', error);
-        alert(`Error uploading banner: ${error.message}`);
+        alert(`Error uploading banner: ${error.message || 'Unknown error'}`);
       } finally {
         setUploadingBanner(false);
       }
@@ -393,12 +396,45 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
       // Sign and send transaction
       console.log('Encoding transaction...');
       const encodedTxn = algosdk.encodeUnsignedTransaction(txn);
-      console.log('Signing transaction with wallet...');
-      const signedTxns = await signTransactions([encodedTxn]);
       
-      if (signedTxns && signedTxns[0]) {
+      // Log transaction details for debugging
+      console.log('Transaction details:', {
+        type: txn.type,
+        assetName: formData.programName,
+        sender: txn.sender.toString(),
+        fee: txn.fee,
+        firstValid: txn.firstValid,
+        lastValid: txn.lastValid
+      });
+      
+      console.log('Signing transaction with wallet...');
+      
+      try {
+        // Explicitly check if signTransactions is available
+        if (!signTransactions) {
+          throw new Error('Wallet signing function not available');
+        }
+        
+        // Sign the transaction with proper error handling
+        const signedTxns = await signTransactions([encodedTxn]);
+        
+        // Validate the signed transaction
+        if (!signedTxns || signedTxns.length === 0 || !signedTxns[0]) {
+          throw new Error('Failed to sign transaction: No signed transaction returned');
+        }
+        
+        console.log('Transaction signed successfully');
+        
+        // Convert to Uint8Array and filter out any null values
         const signedTxnBytes = signedTxns.map(txn => txn ? new Uint8Array(txn) : null).filter(Boolean) as Uint8Array[];
+        
+        if (signedTxnBytes.length === 0) {
+          throw new Error('No valid signed transactions to submit');
+        }
+        
+        console.log('Sending transaction to network...');
         const response = await algodClient.sendRawTransaction(signedTxnBytes).do();
+        console.log('Transaction sent, waiting for confirmation...', response);
         
         // Wait for confirmation
         const confirmedTxn = await algosdk.waitForConfirmation(
@@ -406,6 +442,8 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
           response.txid,
           4
         );
+        
+        console.log('Transaction confirmed:', confirmedTxn);
         
         // Get the asset ID from the confirmed transaction
         const assetId = Number(confirmedTxn.assetIndex);
@@ -440,8 +478,9 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
         if (onLoyaltyProgramMinted) {
           onLoyaltyProgramMinted();
         }
-      } else {
-        throw new Error('Failed to sign transaction');
+      } catch (signingError: any) {
+        console.error('Error during transaction signing:', signingError);
+        throw new Error(`Failed to sign transaction: ${signingError.message || 'Unknown signing error'}`);
       }
     } catch (error: any) {
       console.error('Error creating loyalty program:', error);
@@ -455,6 +494,8 @@ export function LoyaltyProgramMinter({ onLoyaltyProgramMinted }: LoyaltyProgramM
         errorMessage = 'Transaction was rejected by user.';
       } else if (error.message?.includes('Network error')) {
         errorMessage = 'Network connection error. Please check your internet connection and try again.';
+      } else if (error.message?.includes('Failed to sign transaction')) {
+        errorMessage = 'Failed to sign transaction. Please ensure your wallet is properly connected and try again.';
       }
       
       setResult({ 

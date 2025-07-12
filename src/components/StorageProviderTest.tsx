@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@txnlab/use-wallet-react';
 import { uploadFileToIPFS, getStorageProvider, setStorageProvider, StorageProvider } from '../utils/storage';
-import { Upload, CheckCircle, AlertCircle, HardDrive } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, HardDrive, Info } from 'lucide-react';
 
 export function StorageProviderTest() {
   const { activeAddress } = useWallet();
@@ -9,7 +9,25 @@ export function StorageProviderTest() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [currentProvider, setCurrentProvider] = useState<StorageProvider>('pinata');
-  const [testingProvider, setTestingProvider] = useState<StorageProvider>('pinata');
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const loadStorageProvider = async () => {
+      if (activeAddress) {
+        try {
+          const provider = await getStorageProvider(activeAddress);
+          setCurrentProvider(provider);
+        } catch (error) {
+          console.error('Failed to load storage provider:', error);
+        }
+      }
+    };
+    
+    loadStorageProvider();
+  }, [activeAddress]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -22,24 +40,31 @@ export function StorageProviderTest() {
 
     setUploading(true);
     setUploadResult(null);
+    setNotification(null);
 
     try {
       // Get current provider
       const provider = await getStorageProvider(activeAddress);
       setCurrentProvider(provider);
 
-      // Upload file
+      // Upload file with silent fallback if needed
       const result = await uploadFileToIPFS(selectedFile, provider);
       setUploadResult(result);
       
-      // Log fallback information silently (no user notification)
+      // Just log fallback information silently (no user notification)
       if (result.success && result.fallbackUsed) {
-        console.warn('Lighthouse upload failed, used Pinata as fallback');
+        console.warn('Lighthouse upload failed, silently used Pinata as fallback');
       }
     } catch (error: any) {
       setUploadResult({
         success: false,
-        message: error.message
+        message: error.message,
+        provider: currentProvider,
+        fallbackUsed: false
+      });
+      setNotification({
+        type: 'error',
+        message: `Upload failed: ${error.message}`
       });
     } finally {
       setUploading(false);
@@ -50,15 +75,25 @@ export function StorageProviderTest() {
     if (!activeAddress) return;
 
     try {
+      setNotification(null);
       const result = await setStorageProvider(activeAddress, provider);
       if (result.success) {
         setCurrentProvider(provider);
-        alert(`Storage provider updated to ${provider}`);
+        setNotification({
+          type: 'success',
+          message: `Storage provider updated to ${provider}`
+        });
       } else {
-        alert(`Failed to update provider: ${result.message}`);
+        setNotification({
+          type: 'error',
+          message: `Failed to update provider: ${result.message}`
+        });
       }
     } catch (error: any) {
-      alert(`Error updating provider: ${error.message}`);
+      setNotification({
+        type: 'error',
+        message: `Error updating provider: ${error.message}`
+      });
     }
   };
 
@@ -70,6 +105,35 @@ export function StorageProviderTest() {
           Storage Provider Test
         </h2>
       </div>
+
+      {notification && (
+        <div className={`mb-4 p-3 rounded-md ${
+          notification.type === 'success' 
+            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+            : notification.type === 'error'
+              ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+        }`}>
+          <div className="flex items-start gap-2">
+            {notification.type === 'success' ? (
+              <CheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" size={16} />
+            ) : notification.type === 'error' ? (
+              <AlertCircle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={16} />
+            ) : (
+              <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+            )}
+            <p className={`text-sm ${
+              notification.type === 'success' 
+                ? 'text-green-700 dark:text-green-300' 
+                : notification.type === 'error'
+                  ? 'text-red-700 dark:text-red-300'
+                  : 'text-blue-700 dark:text-blue-300'
+            }`}>
+              {notification.message}
+            </p>
+          </div>
+        </div>
+      )}
 
       {!activeAddress ? (
         <div className="text-center py-8">
@@ -122,6 +186,12 @@ export function StorageProviderTest() {
               >
                 Lighthouse
               </button>
+            </div>
+            <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              <p>
+                <Info size={12} className="inline mr-1" />
+                Lighthouse will automatically fall back to Pinata if uploads fail
+              </p>
             </div>
           </div>
 
@@ -192,12 +262,17 @@ export function StorageProviderTest() {
                           CID: {uploadResult.cid}
                         </p>
                         <p className="text-sm text-green-700 dark:text-green-400">
-                          Provider: {uploadResult.provider.charAt(0).toUpperCase() + uploadResult.provider.slice(1)}
+                          Provider Used: {uploadResult.provider.charAt(0).toUpperCase() + uploadResult.provider.slice(1)}
                         </p>
                         {uploadResult.fallbackUsed && (
-                          <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-                            ⚠️ Fallback used: Your preferred provider was unavailable
-                          </p>
+                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm">
+                            <p className="text-yellow-700 dark:text-yellow-400">
+                              <span className="font-medium">Note:</span> Lighthouse was unavailable, Pinata was used as a fallback.
+                            </p>
+                            <p className="text-yellow-600 dark:text-yellow-500 text-xs mt-1">
+                              This happened automatically without interrupting your upload.
+                            </p>
+                          </div>
                         )}
                       </>
                     )}

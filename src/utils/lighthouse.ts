@@ -38,20 +38,35 @@ export const uploadFileToLighthouse = async (file: File): Promise<{
     }
 
     // For browser environment, we need to handle File objects correctly
-    // The Lighthouse SDK expects the file to be passed directly
     console.log('Uploading file to Lighthouse:', file.name, file.size);
     
-    const uploadResponse = await lighthouse.upload(file, apiKey);
+    // Create a FormData object for the upload
+    const formData = new FormData();
+    formData.append('file', file);
     
-    console.log('Lighthouse upload response:', uploadResponse);
+    // Use the direct API endpoint for more reliable uploads
+    const response = await fetch('https://node.lighthouse.storage/api/v0/add', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: formData
+    });
     
-    if (!uploadResponse.data || !uploadResponse.data.Hash) {
+    if (!response.ok) {
+      throw new Error(`Lighthouse API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Lighthouse upload response:', data);
+    
+    if (!data || !data.Hash) {
       throw new Error('Failed to get CID from Lighthouse response');
     }
 
     return {
       success: true,
-      cid: uploadResponse.data.Hash,
+      cid: data.Hash,
     };
   } catch (error: any) {
     console.error('Error uploading to IPFS via Lighthouse:', error);

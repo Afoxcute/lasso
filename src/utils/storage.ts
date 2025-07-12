@@ -70,14 +70,16 @@ export const setStorageProvider = async (
 };
 
 /**
- * Upload a file to IPFS using the selected provider with fallback
+ * Upload a file to IPFS using the selected provider with silent fallback
  * @param file The file to upload
  * @param provider The storage provider to use
+ * @param skipLighthouse Optional flag to skip Lighthouse and use Pinata directly
  * @returns Object with success status, CID and message
  */
 export const uploadFileToIPFS = async (
   file: File,
-  provider: StorageProvider = 'pinata'
+  provider: StorageProvider = 'pinata',
+  skipLighthouse: boolean = false
 ): Promise<{
   success: boolean;
   cid?: string;
@@ -88,37 +90,77 @@ export const uploadFileToIPFS = async (
   try {
     let result;
     let fallbackUsed = false;
+    let actualProvider = provider;
     
-    if (provider === 'lighthouse') {
+    // Check if we should skip Lighthouse entirely
+    if (provider === 'lighthouse' && skipLighthouse) {
+      console.log('Skipping Lighthouse as requested, using Pinata directly');
+      actualProvider = 'pinata';
+      result = await pinFileToIPFS(file);
+      return {
+        ...result,
+        provider: 'pinata',
+        fallbackUsed: true
+      };
+    }
+    
+    // First attempt with the selected provider
+    if (provider === 'lighthouse' && !skipLighthouse) {
       try {
         console.log('Attempting to upload to Lighthouse...');
-        result = await uploadFileToLighthouse(file);
         
+        // Set a timeout for Lighthouse upload to ensure we don't wait too long
+        const lighthousePromise = uploadFileToLighthouse(file);
+        
+        // Create a timeout promise that rejects after 3 seconds (reduced from 5)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Lighthouse upload timeout')), 3000);
+        });
+        
+        // Race the upload against the timeout
+        result = await Promise.race([
+          lighthousePromise,
+          timeoutPromise.catch(error => {
+            console.warn('Lighthouse upload timed out:', error);
+            return { success: false, message: 'Upload timed out' };
+          })
+        ]);
+        
+        // If Lighthouse fails or times out, immediately fallback to Pinata
         if (!result.success) {
-          console.warn('Lighthouse upload failed, falling back to Pinata');
+          console.warn(`Lighthouse upload failed: ${result.message}, immediately falling back to Pinata`);
           fallbackUsed = true;
+          actualProvider = 'pinata';
           result = await pinFileToIPFS(file);
         }
       } catch (error) {
-        console.warn('Lighthouse upload error, falling back to Pinata:', error);
+        // Silent fallback to Pinata on any error
+        console.warn('Lighthouse upload error, immediately falling back to Pinata:', error);
         fallbackUsed = true;
+        actualProvider = 'pinata';
         result = await pinFileToIPFS(file);
       }
     } else {
-      // Default to Pinata
-      result = await pinFileToIPFS(file);
+      // Use Pinata as the primary provider
+      try {
+        console.log('Uploading to Pinata...');
+        result = await pinFileToIPFS(file);
+      } catch (error) {
+        console.error('Pinata upload failed with no fallback:', error);
+        throw error; // Re-throw to be caught by the outer try-catch
+      }
     }
     
     return {
       ...result,
-      provider: fallbackUsed ? 'pinata' : provider,
+      provider: actualProvider,
       fallbackUsed
     };
   } catch (error: any) {
-    console.error(`Error uploading to IPFS via ${provider}:`, error);
+    console.error(`Error uploading to IPFS:`, error);
     return {
       success: false,
-      message: error.message || `Failed to upload to IPFS via ${provider}`,
+      message: error.message || `Failed to upload to IPFS`,
       provider,
       fallbackUsed: false
     };

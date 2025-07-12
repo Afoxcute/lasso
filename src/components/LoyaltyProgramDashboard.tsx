@@ -17,7 +17,7 @@ import {
   Image, File, ExternalLink, QrCode, CreditCard,
   Download, ArrowRight, MessageSquare, Eye, Calendar, MapPin, 
   Palette, Wallet, Star, Settings, User, Building2, LogOut,
-  AlertTriangle, AlertCircle
+  AlertTriangle, AlertCircle, CheckCircle
 } from 'lucide-react';
 import * as QRCode from 'qrcode';
 import { MemberCard } from './MemberCard';
@@ -151,6 +151,7 @@ export function LoyaltyProgramDashboard({
   const [showProgramDetails, setShowProgramDetails] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<LoyaltyProgramInfo | null>(null);
   const [showLoyaltyPassModal, setShowLoyaltyPassModal] = useState(false);
+  const [showSendPassModal, setShowSendPassModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [issuingLoyaltyPass, setIssuingLoyaltyPass] = useState(false);
   const [isTransferringPass, setIsTransferringPass] = useState(false);
@@ -622,6 +623,12 @@ export function LoyaltyProgramDashboard({
     setPendingTransferAssetId(null);
   };
 
+  const closeSendPassModal = () => {
+    setShowSendPassModal(false);
+    setNftPassResult(null);
+    setRecipientAddress('');
+  };
+
   const issueLoyaltyPass = async (recipientAddress: string) => {
     if (!activeAddress || !selectedMember || userLoyaltyPrograms.length === 0) {
       setNftPassResult({ success: false, message: 'Missing required information' });
@@ -905,6 +912,171 @@ export function LoyaltyProgramDashboard({
     }
   };
 
+  // Function to send a loyalty pass directly to a wallet address
+  const sendLoyaltyPass = async (recipientAddress: string) => {
+    if (!activeAddress || !signTransactions) {
+      setNftPassResult({ 
+        success: false, 
+        message: 'Please connect your wallet first' 
+      });
+      return;
+    }
+
+    if (!recipientAddress) {
+      setNftPassResult({ 
+        success: false, 
+        message: 'Please enter a recipient wallet address' 
+      });
+      return;
+    }
+
+    // Validate Algorand address
+    try {
+      algosdk.decodeAddress(recipientAddress);
+    } catch {
+      setNftPassResult({ 
+        success: false, 
+        message: 'Please enter a valid Algorand wallet address' 
+      });
+      return;
+    }
+
+    const selectedProgram = userLoyaltyPrograms.find(p => p.id === selectedProgramId);
+    if (!selectedProgram) {
+      setNftPassResult({ 
+        success: false, 
+        message: 'Please select a loyalty program' 
+      });
+      return;
+    }
+
+    setIssuingLoyaltyPass(true);
+    setNftPassResult(null);
+
+    try {
+      // Get network-specific algod client
+      const networkType = activeNetwork === 'mainnet' ? 'mainnet' : 'testnet';
+      const algodClient = getAlgodClient(networkType);
+      
+      // Get suggested parameters
+      const suggestedParams = await algodClient.getTransactionParams().do();
+      
+      // Create Loyalty Program Pass metadata
+      const passMetadata = {
+        program: {
+          id: selectedProgram.id,
+          name: selectedProgram.name,
+        },
+        member: {
+          address: recipientAddress,
+          joinDate: new Date().toISOString()
+        },
+        type: 'loyalty_pass',
+        version: '1.0',
+        created: new Date().toISOString()
+      };
+      
+      // Convert metadata to Uint8Array for note field
+      const metadataStr = JSON.stringify(passMetadata);
+      const metadataBytes = new Uint8Array(Buffer.from(metadataStr));
+      
+      // Create asset creation transaction for the Loyalty Program Pass
+      const txn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+        sender: activeAddress,
+        total: 1,
+        decimals: 0,
+        assetName: `${selectedProgram.name} Pass`,
+        unitName: 'PASS',
+        assetURL: selectedProgram.imageUrl || '',
+        note: metadataBytes,
+        defaultFrozen: false,
+        suggestedParams,
+        manager: activeAddress,
+        reserve: activeAddress,
+        freeze: activeAddress,
+        clawback: activeAddress
+      });
+
+      // Sign and send transaction
+      const encodedTxn = algosdk.encodeUnsignedTransaction(txn);
+      const signedTxns = await signTransactions([encodedTxn]);
+      
+      if (signedTxns && signedTxns[0]) {
+        const signedTxnBytes = signedTxns.map(txn => txn ? new Uint8Array(txn) : null).filter(Boolean) as Uint8Array[];
+        const response = await algodClient.sendRawTransaction(signedTxnBytes).do();
+        
+        // Wait for confirmation
+        const confirmedTxn = await algosdk.waitForConfirmation(
+          algodClient,
+          response.txid,
+          4
+        );
+        
+        // Get the asset ID from the confirmed transaction
+        const assetId = Number(confirmedTxn.assetIndex);
+        
+        // Transfer the Loyalty Program Pass to recipient if different from sender
+        if (recipientAddress && recipientAddress !== activeAddress) {
+          try {
+            const transferTxn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+              sender: activeAddress,
+              receiver: recipientAddress,
+              amount: 1,
+              assetIndex: assetId,
+              suggestedParams: await algodClient.getTransactionParams().do(),
+            });
+
+            const encodedTransferTxn = algosdk.encodeUnsignedTransaction(transferTxn);
+            const signedTransferTxns = await signTransactions([encodedTransferTxn]);
+            
+            if (signedTransferTxns && signedTransferTxns[0]) {
+              const signedTransferTxnBytes = signedTransferTxns.map(txn => txn ? new Uint8Array(txn) : null).filter(Boolean) as Uint8Array[];
+              await algodClient.sendRawTransaction(signedTransferTxnBytes).do();
+              
+              setNftPassResult({ 
+                success: true, 
+                message: `Loyalty Program Pass sent successfully to ${recipientAddress}!`, 
+                assetId 
+              });
+            }
+          } catch (transferError) {
+            console.error('Error transferring pass:', transferError);
+            setNftPassResult({ 
+              success: true, 
+              message: `Loyalty Program Pass created (Asset ID: ${assetId}) but transfer failed. The recipient may need to opt-in to the asset.`, 
+              assetId 
+            });
+          }
+        } else {
+          setNftPassResult({ 
+            success: true, 
+            message: `Loyalty Program Pass created successfully with Asset ID: ${assetId}`, 
+            assetId 
+          });
+        }
+        
+        // Add activity
+        const activity = {
+          id: `pass-sent-${Date.now()}`,
+          type: 'pass_sent',
+          message: `Loyalty Pass (ID: ${assetId}) sent to ${recipientAddress.substring(0, 6)}...${recipientAddress.substring(recipientAddress.length - 4)}`,
+          timestamp: new Date().toISOString(),
+          color: 'blue'
+        };
+        
+        setRecentActivities(prev => [activity, ...prev].slice(0, 5));
+      }
+    } catch (error: any) {
+      console.error('Error sending loyalty pass:', error);
+      setNftPassResult({ 
+        success: false, 
+        message: `Error sending loyalty pass: ${error.message || 'Unknown error'}` 
+      });
+    } finally {
+      setIssuingLoyaltyPass(false);
+    }
+  };
+
   // Render program details modal
   const renderProgramDetailsModal = () => {
     if (!selectedProgram || !showProgramDetails) return null;
@@ -1132,6 +1304,17 @@ export function LoyaltyProgramDashboard({
                 className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
               >
                 📋 Copy Data
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedProgramId(selectedProgram.id);
+                  setShowSendPassModal(true);
+                  closeProgramDetails();
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Send size={16} />
+                Send Loyalty Pass
               </button>
             </div>
           </div>
@@ -2524,6 +2707,161 @@ export function LoyaltyProgramDashboard({
     );
   };
 
+  // Render send loyalty pass modal
+  const renderSendPassModal = () => {
+    if (!showSendPassModal) return null;
+
+    const selectedProgram = userLoyaltyPrograms.find(p => p.id === selectedProgramId);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Send size={24} />
+              Send Loyalty Pass
+            </h2>
+            <button
+              onClick={closeSendPassModal}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-6">
+            {/* Program Selection */}
+            {userLoyaltyPrograms.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Loyalty Program</label>
+                <select
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(Number(e.target.value))}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  {userLoyaltyPrograms.map((program) => (
+                    <option key={program.id} value={program.id}>
+                      {program.name} (ID: {program.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Program Info */}
+            {selectedProgram && (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Award size={18} />
+                  Selected Program
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden">
+                    {selectedProgram.imageUrl && (
+                      <img 
+                        src={selectedProgram.imageUrl} 
+                        alt={selectedProgram.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{selectedProgram.name}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedProgram.id}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recipient Address */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Recipient Wallet Address
+              </label>
+              <input
+                type="text"
+                value={recipientAddress}
+                onChange={(e) => setRecipientAddress(e.target.value)}
+                placeholder="Enter recipient's Algorand wallet address"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The recipient will receive the loyalty pass directly to their wallet.
+              </p>
+            </div>
+
+            {/* Result/Error Message */}
+            {nftPassResult && (
+              <div className={`p-4 rounded-lg ${nftPassResult.success ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    {nftPassResult.success ? (
+                      <CheckCircle className="h-5 w-5 text-green-400" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-400" />
+                    )}
+                  </div>
+                  <div className="ml-3">
+                    <h3 className={`text-sm font-medium ${nftPassResult.success ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+                      {nftPassResult.success ? 'Success!' : 'Error'}
+                    </h3>
+                    <div className={`mt-2 text-sm ${nftPassResult.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                      <p>{nftPassResult.message}</p>
+                      {nftPassResult.success && nftPassResult.assetId && (
+                        <div className="mt-2">
+                          <a
+                            href={`${EXPLORER_URL}/asset/${nftPassResult.assetId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            View on Explorer <ExternalLink size={14} className="ml-1" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={closeSendPassModal}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => sendLoyaltyPass(recipientAddress)}
+                disabled={issuingLoyaltyPass || !recipientAddress}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {issuingLoyaltyPass ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Send size={18} className="mr-2" />
+                    Send Pass
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-8 my-8">
       <div className="flex justify-between items-center mb-8">
@@ -2691,6 +3029,9 @@ export function LoyaltyProgramDashboard({
       
       {/* Loyalty Pass Modal */}
       {showLoyaltyPassModal && selectedMember && renderLoyaltyPassModal()}
+      
+      {/* Send Pass Modal */}
+      {showSendPassModal && renderSendPassModal()}
       
       {/* Message Center Modal */}
       {showMessageCenter && selectedMemberForMessage && (

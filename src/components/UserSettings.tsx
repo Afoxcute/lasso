@@ -4,15 +4,16 @@ import { supabase } from '../utils/supabase';
 import { WalletInfo } from './WalletInfo';
 import { ChangePassword } from './ChangePassword';
 import { PasswordReset } from './PasswordReset';
-import { Settings, KeyRound, Mail, User, AlertTriangle, Edit, HardDrive } from 'lucide-react';
+import { Settings, KeyRound, Mail, User, AlertTriangle, Edit, HardDrive, CheckCircle, Info } from 'lucide-react';
 import { fetchAdminInfo, updateAdminInfo, AdminInfo } from '../utils/admin';
 import { StorageProvider, getStorageProvider, setStorageProvider } from '../utils/storage';
 
 interface UserSettingsProps {
   onBack?: () => void;
+  onClose?: () => void;
 }
 
-export function UserSettings({ onBack }: UserSettingsProps) {
+export function UserSettings({ onBack, onClose }: UserSettingsProps) {
   const { activeAddress } = useWallet();
   const [activeTab, setActiveTab] = useState<'account' | 'security'>('account');
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -28,6 +29,10 @@ export function UserSettings({ onBack }: UserSettingsProps) {
   const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null);
   const [storageProvider, setStorageProviderState] = useState<StorageProvider>('pinata');
   const [isUpdatingProvider, setIsUpdatingProvider] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -49,11 +54,9 @@ export function UserSettings({ onBack }: UserSettingsProps) {
         setFormName(info.fullName || '');
         setFormEmail(info.email || '');
 
-        // Get storage provider preference
-        if (info.isAdmin) {
-          const provider = await getStorageProvider(activeAddress);
-          setStorageProviderState(provider);
-        }
+        // Get storage provider preference for all users
+        const provider = await getStorageProvider(activeAddress);
+        setStorageProviderState(provider);
       } catch (error: any) {
         console.error('Error in fetchUserData:', error);
         setError(`Error fetching user data: ${error.message}`);
@@ -97,14 +100,21 @@ export function UserSettings({ onBack }: UserSettingsProps) {
       }
       
       setIsEditing(false);
+      setNotification({
+        type: 'success',
+        message: 'Profile updated successfully'
+      });
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      alert(`Error updating profile: ${error.message}`);
+      setNotification({
+        type: 'error',
+        message: `Error updating profile: ${error.message}`
+      });
     }
   };
 
   const handleStorageProviderChange = async (provider: StorageProvider) => {
-    if (!activeAddress || !isAdmin) return;
+    if (!activeAddress) return;
     
     setIsUpdatingProvider(true);
     try {
@@ -115,10 +125,16 @@ export function UserSettings({ onBack }: UserSettingsProps) {
       }
       
       setStorageProviderState(provider);
-      alert(`Storage provider updated to ${provider}`);
+      setNotification({
+        type: 'success',
+        message: `Storage provider updated to ${provider}`
+      });
     } catch (error: any) {
       console.error('Error updating storage provider:', error);
-      alert(`Error updating storage provider: ${error.message}`);
+      setNotification({
+        type: 'error',
+        message: `Error updating storage provider: ${error.message}`
+      });
     } finally {
       setIsUpdatingProvider(false);
     }
@@ -130,6 +146,35 @@ export function UserSettings({ onBack }: UserSettingsProps) {
         <Settings className="text-blue-500 mr-3" size={28} />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Account Settings</h1>
       </div>
+      
+      {notification && (
+        <div className={`mb-4 p-3 rounded-md ${
+          notification.type === 'success' 
+            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+            : notification.type === 'error'
+              ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+        }`}>
+          <div className="flex items-start gap-2">
+            {notification.type === 'success' ? (
+              <CheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" size={16} />
+            ) : notification.type === 'error' ? (
+              <AlertTriangle className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" size={16} />
+            ) : (
+              <Info className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+            )}
+            <p className={`text-sm ${
+              notification.type === 'success' 
+                ? 'text-green-700 dark:text-green-300' 
+                : notification.type === 'error'
+                  ? 'text-red-700 dark:text-red-300'
+                  : 'text-blue-700 dark:text-blue-300'
+            }`}>
+              {notification.message}
+            </p>
+          </div>
+        </div>
+      )}
       
       {!activeAddress ? (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
@@ -283,7 +328,6 @@ export function UserSettings({ onBack }: UserSettingsProps) {
                       </div>
                       
                       {isAdmin && (
-                        <>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Subscription Plan
@@ -299,65 +343,72 @@ export function UserSettings({ onBack }: UserSettingsProps) {
                             </span>
                           </div>
                         </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Storage Provider
-                            </label>
-                            <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-4">
-                              <div className="flex items-center mb-3">
-                                <HardDrive size={18} className="text-gray-400 mr-2" />
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Select your preferred storage provider for media files
-                                </span>
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <button
-                                  onClick={() => handleStorageProviderChange('pinata')}
-                                  disabled={isUpdatingProvider}
-                                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
-                                    storageProvider === 'pinata'
-                                      ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
-                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
-                                  }`}
-                                >
-                                  <span className="font-medium">Pinata</span>
-                                  {storageProvider === 'pinata' && (
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
-                                      Active
-                                    </span>
-                                  )}
-                                </button>
-                                
-                                <button
-                                  onClick={() => handleStorageProviderChange('lighthouse')}
-                                  disabled={isUpdatingProvider}
-                                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
-                                    storageProvider === 'lighthouse'
-                                      ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
-                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
-                                  }`}
-                                >
-                                  <span className="font-medium">Lighthouse</span>
-                                  {storageProvider === 'lighthouse' && (
-                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
-                                      Active
-                                    </span>
-                                  )}
-                                </button>
-                              </div>
-                              
-                              {isUpdatingProvider && (
-                                <div className="flex items-center justify-center mt-3">
-                                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-                                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Updating provider...</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </>
                       )}
+
+                      {/* Storage Provider Selection - Available for all users */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Storage Provider
+                        </label>
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-4">
+                          <div className="flex items-center mb-3">
+                            <HardDrive size={18} className="text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              Select your preferred storage provider for media files
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <button
+                              onClick={() => handleStorageProviderChange('pinata')}
+                              disabled={isUpdatingProvider}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
+                                storageProvider === 'pinata'
+                                  ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              <span className="font-medium">Pinata</span>
+                              {storageProvider === 'pinata' && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
+                                  Active
+                                </span>
+                              )}
+                            </button>
+                            
+                            <button
+                              onClick={() => handleStorageProviderChange('lighthouse')}
+                              disabled={isUpdatingProvider}
+                              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md border ${
+                                storageProvider === 'lighthouse'
+                                  ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              <span className="font-medium">Lighthouse</span>
+                              {storageProvider === 'lighthouse' && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full dark:bg-blue-900/50 dark:text-blue-300">
+                                  Active
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                          
+                          <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                            <p>
+                              <Info size={12} className="inline mr-1" />
+                              Lighthouse will automatically fall back to Pinata if uploads fail
+                            </p>
+                          </div>
+                          
+                          {isUpdatingProvider && (
+                            <div className="flex items-center justify-center mt-3">
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Updating provider...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                   
@@ -402,6 +453,17 @@ export function UserSettings({ onBack }: UserSettingsProps) {
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               >
                 Back to Dashboard
+              </button>
+            </div>
+          )}
+
+          {onClose && !onBack && (
+            <div className="mt-6">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                Close
               </button>
             </div>
           )}
